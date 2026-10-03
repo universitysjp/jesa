@@ -109,7 +109,11 @@ export async function GET(request: Request) {
 						email: asString(personalInfo.email),
 						mobileNumber: asString(personalInfo.mobileNumber),
 						name: asString(personalInfo.publicDisplayName),
-						nic: asString(personalInfo.nic),
+						// Prefer the stored snapshot, but fall back to the application so
+						// records written before the NIC was persisted still resolve.
+						nic:
+							asString(asRecord(submissionData.applicant).nic) ??
+							asString(personalInfo.nic),
 					},
 					applicationId,
 					applicationReferenceNumber: asString(

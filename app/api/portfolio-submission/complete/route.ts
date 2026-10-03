@@ -2,6 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { createPortfolioObjectKey } from "@/lib/portfolio-file-name";
 import {
 	getRequiredDocuments,
 	isPortfolioDocumentType,
@@ -9,7 +10,6 @@ import {
 	verifyVerificationToken,
 } from "@/lib/portfolio-submission-security";
 import {
-	createTigrisObjectKey,
 	deleteTigrisObject,
 	getTigrisBucketName,
 	inspectPdfObject,
@@ -102,11 +102,13 @@ export async function POST(request: Request) {
 			);
 		}
 
-		const expectedObjectKey = createTigrisObjectKey(
-			applicationId,
+		const expectedObjectKey = createPortfolioObjectKey({
 			applicantName,
-			parsed.data.documentType,
-		);
+			applicationId,
+			documentType: parsed.data.documentType,
+			nic: asString(personalInfo.nic),
+			registrationYear: 2026,
+		});
 		if (parsed.data.objectKey !== expectedObjectKey) {
 			return NextResponse.json(
 				{ error: "Invalid upload location." },
@@ -158,6 +160,7 @@ export async function POST(request: Request) {
 			faculty: asString(academicInfo.faculty),
 			mobileNumber: asString(personalInfo.mobileNumber),
 			name: applicantName,
+			nic: asString(personalInfo.nic),
 			university: asString(academicInfo.university),
 			universityRegistrationNumber: asString(
 				academicInfo.universityRegistrationNumber,

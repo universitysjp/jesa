@@ -240,14 +240,10 @@ function StudentDashboard({
 	>({});
 	const [uploadError, setUploadError] = useState<string | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
-	const actionLabel = application.submission.hasSubmission
-		? "Resubmit documents"
-		: "Submit documents";
 	const hasAllRequiredFiles = requiredDocuments.every(
 		(documentType) => files[documentType],
 	);
-	const shouldShowActionButton =
-		!application.submission.hasSubmission || hasAllRequiredFiles;
+	const hasSubmitted = application.submission.hasSubmission;
 
 	function handleFileChange(
 		documentType: DocumentType,
@@ -432,53 +428,58 @@ function StudentDashboard({
 						</div>
 					</div>
 
-					<div className="mt-5 space-y-3">
-						<DocumentUploadCard
-							description="Required for every applicant."
-							documentType="portfolio"
-							error={fileErrors.portfolio}
-							file={files.portfolio}
-							label="Portfolio"
-							onChange={handleFileChange}
-							onRemove={() =>
-								setFiles((current) => ({ ...current, portfolio: undefined }))
-							}
-						/>
-						{requiresBusinessPlan ? (
+					{!hasSubmitted ? (
+						<div className="mt-5 space-y-3">
 							<DocumentUploadCard
-								description="Required for your Best Young Entrepreneur application."
-								documentType="businessPlan"
-								error={fileErrors.businessPlan}
-								file={files.businessPlan}
-								label="Business Plan"
+								description="Required for every applicant."
+								documentType="portfolio"
+								error={fileErrors.portfolio}
+								file={files.portfolio}
+								label="Portfolio"
 								onChange={handleFileChange}
 								onRemove={() =>
-									setFiles((current) => ({
-										...current,
-										businessPlan: undefined,
-									}))
+									setFiles((current) => ({ ...current, portfolio: undefined }))
 								}
 							/>
-						) : null}
-						{requiresCsrReport ? (
-							<DocumentUploadCard
-								description="Required for your Best CSR application."
-								documentType="csrReport"
-								error={fileErrors.csrReport}
-								file={files.csrReport}
-								label="CSR Report"
-								onChange={handleFileChange}
-								onRemove={() =>
-									setFiles((current) => ({ ...current, csrReport: undefined }))
-								}
-							/>
-						) : null}
-					</div>
+							{requiresBusinessPlan ? (
+								<DocumentUploadCard
+									description="Required for your Best Young Entrepreneur application."
+									documentType="businessPlan"
+									error={fileErrors.businessPlan}
+									file={files.businessPlan}
+									label="Business Plan"
+									onChange={handleFileChange}
+									onRemove={() =>
+										setFiles((current) => ({
+											...current,
+											businessPlan: undefined,
+										}))
+									}
+								/>
+							) : null}
+							{requiresCsrReport ? (
+								<DocumentUploadCard
+									description="Required for your Best CSR application."
+									documentType="csrReport"
+									error={fileErrors.csrReport}
+									file={files.csrReport}
+									label="CSR Report"
+									onChange={handleFileChange}
+									onRemove={() =>
+										setFiles((current) => ({
+											...current,
+											csrReport: undefined,
+										}))
+									}
+								/>
+							) : null}
+						</div>
+					) : null}
 
 					<div className="mt-6 flex flex-col gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 sm:flex-row sm:items-center sm:justify-between">
 						<div>
 							<p className="font-medium">Submission status</p>
-							{application.submission.hasSubmission ? (
+							{hasSubmitted ? (
 								<p className="mt-1 font-medium text-emerald-400 text-sm">
 									Current status:{" "}
 									{application.submission.status.replaceAll("_", " ")}
@@ -488,19 +489,14 @@ function StudentDashboard({
 									No documents have been submitted.
 								</p>
 							)}
-							{application.submission.hasSubmission && !hasAllRequiredFiles ? (
-								<p className="mt-1 text-slate-400 text-xs">
-									Select the required PDFs again to resubmit.
-								</p>
-							) : null}
 						</div>
-						{shouldShowActionButton ? (
+						{!hasSubmitted ? (
 							<Button
 								disabled={!hasAllRequiredFiles || isSubmitting}
 								onClick={submitDocuments}
 								type="button"
 							>
-								{isSubmitting ? "Submitting..." : actionLabel}
+								{isSubmitting ? "Submitting..." : "Submit documents"}
 							</Button>
 						) : null}
 					</div>

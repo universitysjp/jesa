@@ -9,7 +9,6 @@ import {
 	S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { PortfolioDocumentType } from "@/lib/portfolio-submission-security";
 
 const UPLOAD_URL_LIFETIME_SECONDS = 5 * 60;
 const DOWNLOAD_URL_LIFETIME_SECONDS = 5 * 60;
@@ -44,33 +43,6 @@ function getTigrisClient() {
 	}
 
 	return client;
-}
-
-function slugifyName(name: string | undefined) {
-	const slug = (name ?? "applicant")
-		.normalize("NFKD")
-		.replace(/[\u0300-\u036f]/g, "")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "");
-
-	return slug || "applicant";
-}
-
-function documentFileName(documentType: PortfolioDocumentType) {
-	return documentType === "businessPlan"
-		? "business-plan"
-		: documentType === "csrReport"
-			? "csr-report"
-			: "portfolio";
-}
-
-export function createTigrisObjectKey(
-	applicationId: string,
-	applicantName: string | undefined,
-	documentType: PortfolioDocumentType,
-) {
-	return `2026/${applicationId}/${slugifyName(applicantName)}-${documentFileName(documentType)}.pdf`;
 }
 
 export async function createUploadUrl({ objectKey }: { objectKey: string }) {

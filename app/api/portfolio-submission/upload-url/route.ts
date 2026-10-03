@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { createPortfolioObjectKey } from "@/lib/portfolio-file-name";
 import {
 	getRequiredDocuments,
 	isPortfolioDocumentType,
 	verifyVerificationToken,
 } from "@/lib/portfolio-submission-security";
-import { createTigrisObjectKey, createUploadUrl } from "@/lib/tigris-storage";
+import { createUploadUrl } from "@/lib/tigris-storage";
 
 export const runtime = "nodejs";
 
@@ -75,14 +76,16 @@ export async function POST(request: Request) {
 			);
 		}
 
-		const applicantName = asRecord(
-			applicationData.personalInfo,
-		).publicDisplayName;
-		const objectKey = createTigrisObjectKey(
+		const personalInfo = asRecord(applicationData.personalInfo);
+		const applicantName = personalInfo.publicDisplayName;
+		const objectKey = createPortfolioObjectKey({
+			applicantName:
+				typeof applicantName === "string" ? applicantName : undefined,
 			applicationId,
-			typeof applicantName === "string" ? applicantName : undefined,
-			parsed.data.documentType,
-		);
+			documentType: parsed.data.documentType,
+			nic: typeof personalInfo.nic === "string" ? personalInfo.nic : undefined,
+			registrationYear: 2026,
+		});
 		const uploadUrl = await createUploadUrl({ objectKey });
 
 		return NextResponse.json({ objectKey, uploadUrl });
