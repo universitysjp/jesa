@@ -246,6 +246,8 @@ function StudentDashboard({
 	const hasAllRequiredFiles = requiredDocuments.every(
 		(documentType) => files[documentType],
 	);
+	const shouldShowActionButton =
+		!application.submission.hasSubmission || hasAllRequiredFiles;
 
 	function handleFileChange(
 		documentType: DocumentType,
@@ -476,19 +478,31 @@ function StudentDashboard({
 					<div className="mt-6 flex flex-col gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4 sm:flex-row sm:items-center sm:justify-between">
 						<div>
 							<p className="font-medium">Submission status</p>
-							<p className="mt-1 text-slate-400 text-sm">
-								{application.submission.hasSubmission
-									? `Current status: ${application.submission.status.replaceAll("_", " ")}`
-									: "No documents have been submitted."}
-							</p>
+							{application.submission.hasSubmission ? (
+								<p className="mt-1 font-medium text-emerald-400 text-sm">
+									Current status:{" "}
+									{application.submission.status.replaceAll("_", " ")}
+								</p>
+							) : (
+								<p className="mt-1 text-slate-400 text-sm">
+									No documents have been submitted.
+								</p>
+							)}
+							{application.submission.hasSubmission && !hasAllRequiredFiles ? (
+								<p className="mt-1 text-slate-400 text-xs">
+									Select the required PDFs again to resubmit.
+								</p>
+							) : null}
 						</div>
-						<Button
-							disabled={!hasAllRequiredFiles || isSubmitting}
-							onClick={submitDocuments}
-							type="button"
-						>
-							{isSubmitting ? "Submitting..." : actionLabel}
-						</Button>
+						{shouldShowActionButton ? (
+							<Button
+								disabled={!hasAllRequiredFiles || isSubmitting}
+								onClick={submitDocuments}
+								type="button"
+							>
+								{isSubmitting ? "Submitting..." : actionLabel}
+							</Button>
+						) : null}
 					</div>
 					{uploadError ? (
 						<p
@@ -577,11 +591,11 @@ function DocumentUploadCard({
 	const messageId = `${inputId}-message`;
 
 	return (
-		<div className="flex gap-3 rounded-xl border border-slate-700/80 bg-background/50 p-4">
-			<div className="mt-0.5 rounded-full bg-secondary p-2 text-amber-300">
+		<div className="flex flex-col gap-4 rounded-xl border border-slate-700/80 bg-background/50 p-4 sm:flex-row sm:items-start">
+			<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary text-amber-300">
 				<FileText aria-hidden="true" className="size-4" />
 			</div>
-			<div className="min-w-0 flex-1">
+			<div className="min-w-0 flex-1 self-stretch">
 				<div className="flex flex-wrap items-center gap-2">
 					<h3 className="font-medium">{label}</h3>
 					<span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-amber-200 text-xs">
@@ -623,7 +637,7 @@ function DocumentUploadCard({
 					<X aria-hidden="true" />
 				</Button>
 			) : (
-				<label className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-input/30 px-3 font-medium text-sm transition-colors hover:bg-input/50 focus-within:ring-[3px] focus-within:ring-ring/50">
+				<label className="inline-flex h-9 w-full shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-input/30 px-3 font-medium text-sm transition-colors hover:bg-input/50 focus-within:ring-[3px] focus-within:ring-ring/50 sm:w-auto">
 					<Upload aria-hidden="true" className="size-4" />
 					Choose PDF
 					<input
