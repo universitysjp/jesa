@@ -51,13 +51,13 @@ const Hero: React.FC = () => {
 				</p>
 
 				<div className="mt-8 flex w-full max-w-md flex-col items-center justify-center gap-4 sm:flex-row">
-					{/* <div className="w-5/7 sm:w-1/2">
-						<CtaButton href="/register/2026" shimmer>
-							Register Now
+					<div className="w-full sm:w-1/2">
+						<CtaButton href="/portfolio-submission" shimmer>
+							Submit Portfolio
 						</CtaButton>
-					</div> */}
+					</div>
 
-					<div className="w-5/7 sm:w-1/2">
+					<div className="w-full sm:w-1/2">
 						<CtaButton href="/hall-of-fame" variant="secondary">
 							Hall of Fame{" "}
 						</CtaButton>
