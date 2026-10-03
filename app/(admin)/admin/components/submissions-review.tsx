@@ -1,6 +1,12 @@
 "use client";
 
-import { ExternalLink, FileText, Loader2, Search } from "lucide-react";
+import {
+	Download,
+	ExternalLink,
+	FileText,
+	Loader2,
+	Search,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,6 +92,12 @@ function documentState(
 	return submission.documents[documentType]?.status === "uploaded"
 		? "uploaded"
 		: "missing";
+}
+
+function uploadedDocumentCount(submission: SubmissionReview) {
+	return (["portfolio", "businessPlan", "csrReport"] as DocumentType[]).filter(
+		(documentType) => Boolean(submission.documents[documentType]?.objectPath),
+	).length;
 }
 
 function statusBadge(status: string) {
@@ -307,14 +319,22 @@ export default function SubmissionsReview() {
 											{formatDate(submission.updatedAt)}
 										</td>
 										<td className="p-4">
-											<Button
-												className="rounded-[8px]"
-												onClick={() => setSelected(submission)}
-												size="sm"
-												variant="outline"
-											>
-												View
-											</Button>
+											<div className="flex items-center gap-2">
+												<Button
+													className="rounded-[8px]"
+													onClick={() => setSelected(submission)}
+													size="sm"
+													variant="outline"
+												>
+													View
+												</Button>
+												<DownloadAllButton
+													applicationId={submission.applicationId}
+													hasUploadedDocuments={uploadedDocumentCount(
+														submission,
+													)}
+												/>
+											</div>
 										</td>
 									</tr>
 								))}
@@ -329,6 +349,74 @@ export default function SubmissionsReview() {
 				onClose={() => setSelected(null)}
 			/>
 		</section>
+	);
+}
+
+function DownloadAllButton({
+	applicationId,
+	hasUploadedDocuments,
+}: {
+	applicationId: string;
+	hasUploadedDocuments: number;
+}) {
+	const [isDownloading, setIsDownloading] = useState(false);
+	const [error, setError] = useState("");
+
+	if (!hasUploadedDocuments) {
+		return (
+			<span
+				className="text-slate-500 text-xs"
+				title="No uploaded documents to download"
+			>
+				No files
+			</span>
+		);
+	}
+
+	async function downloadAll() {
+		setIsDownloading(true);
+		setError("");
+		try {
+			// Streamed as a file download so large archives never sit in memory.
+			const link = document.createElement("a");
+			link.href = `/api/admin/submissions/${applicationId}/download-all`;
+			link.rel = "noopener";
+			document.body.append(link);
+			link.click();
+			link.remove();
+		} catch (downloadError) {
+			setError(
+				downloadError instanceof Error
+					? downloadError.message
+					: "Download failed",
+			);
+		} finally {
+			setIsDownloading(false);
+		}
+	}
+
+	return (
+		<span className="inline-flex flex-col items-end gap-1">
+			<Button
+				className="rounded-[8px]"
+				disabled={isDownloading}
+				onClick={downloadAll}
+				size="sm"
+				variant="outline"
+			>
+				{isDownloading ? (
+					<Loader2 className="size-4 animate-spin" />
+				) : (
+					<Download className="size-4" />
+				)}
+				Download Files
+			</Button>
+			{error ? (
+				<span className="text-destructive text-xs" role="alert">
+					{error}
+				</span>
+			) : null}
+		</span>
 	);
 }
 

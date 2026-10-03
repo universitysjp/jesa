@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { Readable } from "node:stream";
 import {
 	DeleteObjectCommand,
 	GetObjectCommand,
@@ -11,6 +12,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { PortfolioDocumentType } from "@/lib/portfolio-submission-security";
 
 const UPLOAD_URL_LIFETIME_SECONDS = 5 * 60;
+const DOWNLOAD_URL_LIFETIME_SECONDS = 5 * 60;
 
 function getTigrisConfig() {
 	const endpoint = process.env.TIGRIS_ENDPOINT;
@@ -91,8 +93,25 @@ export async function createDownloadUrl(objectKey: string) {
 	return getSignedUrl(
 		getTigrisClient(),
 		new GetObjectCommand({ Bucket: bucket, Key: objectKey }),
-		{ expiresIn: 5 * 60 },
+		{ expiresIn: DOWNLOAD_URL_LIFETIME_SECONDS },
 	);
+}
+
+/**
+ * Opens a streaming body for an object so large files can be piped instead of
+ * buffered in memory. The caller owns the stream and must destroy it on error.
+ */
+export async function createObjectBodyStream(objectKey: string) {
+	const { bucket } = getTigrisConfig();
+	const response = await getTigrisClient().send(
+		new GetObjectCommand({ Bucket: bucket, Key: objectKey }),
+	);
+
+	if (!response.Body) {
+		throw new Error(`Tigris object ${objectKey} returned an empty body`);
+	}
+
+	return response.Body as Readable;
 }
 
 export async function inspectPdfObject(objectKey: string) {
