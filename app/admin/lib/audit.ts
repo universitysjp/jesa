@@ -6,6 +6,7 @@ export type AuditAction =
 	| "view_applications"
 	| "delete_application"
 	| "bulk_delete_applications"
+	| "delete_portfolio_submission"
 	| "status_update"
 	| "bulk_status_update"
 	| "approve_admin"

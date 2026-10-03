@@ -6,6 +6,7 @@ import {
 	FileText,
 	Loader2,
 	Search,
+	Trash2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,9 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { getAwardLabel } from "@/lib/awards";
+import SubmissionDeleteDialog, {
+	type SubmissionDeleteTarget,
+} from "./submissions/submission-delete-dialog";
 
 type DocumentType = "portfolio" | "businessPlan" | "csrReport";
 
@@ -119,6 +123,10 @@ export default function SubmissionsReview() {
 	const [documentFilter, setDocumentFilter] = useState("all");
 	const [sort, setSort] = useState<SortOption>("updated-desc");
 	const [selected, setSelected] = useState<SubmissionReview | null>(null);
+	const [deleteTarget, setDeleteTarget] =
+		useState<SubmissionDeleteTarget | null>(null);
+	const [deleting, setDeleting] = useState(false);
+	const [actionMessage, setActionMessage] = useState("");
 
 	const fetchSubmissions = useCallback(async () => {
 		setLoading(true);
@@ -193,6 +201,59 @@ export default function SubmissionsReview() {
 				);
 			});
 	}, [documentFilter, faculty, search, sort, status, submissions]);
+
+	function openDeleteDialog(submission: SubmissionReview) {
+		setActionMessage("");
+		setDeleteTarget({
+			applicationId: submission.applicationId,
+			applicationReferenceNumber: submission.applicationReferenceNumber,
+			applicantName: submission.applicant.name,
+			deletedFileCount: uploadedDocumentCount(submission),
+			nic: submission.applicant.nic,
+			submissionStatus: submission.submissionStatus,
+		});
+	}
+
+	async function confirmDelete() {
+		if (!deleteTarget || deleting) return;
+
+		setDeleting(true);
+		setActionMessage("");
+
+		try {
+			const response = await fetch(
+				`/api/admin/submissions/${deleteTarget.applicationId}`,
+				{ method: "DELETE" },
+			);
+			const result = await response.json();
+
+			if (!response.ok || !result.success) {
+				setActionMessage(
+					result.error ?? "Could not delete the submission. Please try again.",
+				);
+				return;
+			}
+
+			setSubmissions((current) =>
+				current.filter(
+					(item) => item.applicationId !== deleteTarget.applicationId,
+				),
+			);
+			setSelected((current) =>
+				current?.applicationId === deleteTarget.applicationId ? null : current,
+			);
+			setActionMessage(
+				result.orphanCleanupFailures > 0
+					? `Submission deleted, but ${result.orphanCleanupFailures} stored file(s) could not be removed and need manual cleanup.`
+					: `Submission deleted along with ${result.deletedFileCount} stored file(s).`,
+			);
+			setDeleteTarget(null);
+		} catch {
+			setActionMessage("Could not delete the submission. Please try again.");
+		} finally {
+			setDeleting(false);
+		}
+	}
 
 	return (
 		<section className="space-y-6">
@@ -334,6 +395,18 @@ export default function SubmissionsReview() {
 														submission,
 													)}
 												/>
+												<Button
+													aria-label={`Delete submission for ${
+														submission.applicant.name ?? "applicant"
+													}`}
+													className="rounded-[8px] text-slate-400 hover:bg-slate-800 hover:text-red-200"
+													onClick={() => openDeleteDialog(submission)}
+													size="sm"
+													variant="ghost"
+												>
+													<Trash2 className="size-4" />
+													Delete
+												</Button>
 											</div>
 										</td>
 									</tr>
@@ -344,9 +417,25 @@ export default function SubmissionsReview() {
 				)}
 			</div>
 
+			{actionMessage ? (
+				<p
+					className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-3 text-slate-200 text-sm"
+					role="status"
+				>
+					{actionMessage}
+				</p>
+			) : null}
+
 			<SubmissionDialog
 				submission={selected}
 				onClose={() => setSelected(null)}
+			/>
+
+			<SubmissionDeleteDialog
+				loading={deleting}
+				onClose={() => setDeleteTarget(null)}
+				onConfirm={confirmDelete}
+				target={deleteTarget}
 			/>
 		</section>
 	);
