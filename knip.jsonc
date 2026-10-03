@@ -11,15 +11,13 @@
 	],
 	// Locally consumed exports still implement live behavior (including Firebase helpers).
 	"ignoreExportsUsedInFile": true,
-	"ignoreDependencies": [
-		"@radix-ui/react-tooltip",
-		"react-hot-toast"
-	],
+	"ignoreDependencies": ["@radix-ui/react-tooltip"],
 	"ignoreIssues": {
 		// Archived registration and presentation code is retained for future events.
 		"app/(site)/register/external/external-register-form.tsx": ["files"],
 		"app/(site)/register/internal/internal-register-form.tsx": ["files"],
 		"components/{annoucement,countdown-timer,sponsors}.tsx": ["files"],
+		"app/(admin)/admin/EmailService/email-images.ts": ["files"],
 		"components/ui/{title,tooltip}.tsx": ["files", "exports"],
 		"constants/sponsors.ts": ["files"],
 		// Preserve the shared shadcn primitive APIs, even when only part is consumed.

@@ -53,6 +53,7 @@
 		"react-hook-form": "7.87.0",
 		"react-hot-toast": "2.6.0",
 		"react-pageflip": "2.0.3",
+		"resend": "^6.22.0",
 		"tailwind-merge": "3.6.0",
 		"zod": "^3.25.76"
 	},
