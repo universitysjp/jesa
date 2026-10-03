@@ -20,6 +20,7 @@ import type {
 	ApplicationStatus,
 	DashboardFilters,
 } from "./dashboard/types";
+import SubmissionsReview from "./submissions-review";
 
 interface AdminDashboardProps {
 	userEmail: string;
@@ -27,7 +28,7 @@ interface AdminDashboardProps {
 	isSuperAdmin: boolean;
 }
 
-type AdminTab = "overview" | "list" | "iam";
+type AdminTab = "overview" | "list" | "submissions" | "iam";
 
 const INITIAL_FILTERS: DashboardFilters = {
 	search: "",
@@ -412,6 +413,17 @@ export default function AdminDashboard({
 						>
 							Applications List
 						</Button>
+						<Button
+							variant={activeTab === "submissions" ? "default" : "outline"}
+							onClick={() => setActiveTab("submissions")}
+							className={`rounded-[8px] ${
+								activeTab === "submissions"
+									? "bg-slate-100 text-slate-900 hover:bg-white"
+									: "border-slate-600 text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+							}`}
+						>
+							Portfolio Submissions
+						</Button>
 						{isSuperAdmin && (
 							<Button
 								variant={activeTab === "iam" ? "default" : "outline"}
@@ -477,6 +489,8 @@ export default function AdminDashboard({
 							</div>
 						</>
 					)}
+
+					{activeTab === "submissions" && <SubmissionsReview />}
 				</div>
 
 				{activeTab === "iam" && isSuperAdmin && (

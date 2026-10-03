@@ -85,6 +85,16 @@ export async function createUploadUrl({ objectKey }: { objectKey: string }) {
 	);
 }
 
+export async function createDownloadUrl(objectKey: string) {
+	const { bucket } = getTigrisConfig();
+
+	return getSignedUrl(
+		getTigrisClient(),
+		new GetObjectCommand({ Bucket: bucket, Key: objectKey }),
+		{ expiresIn: 5 * 60 },
+	);
+}
+
 export async function inspectPdfObject(objectKey: string) {
 	const { bucket } = getTigrisConfig();
 	const storageClient = getTigrisClient();
