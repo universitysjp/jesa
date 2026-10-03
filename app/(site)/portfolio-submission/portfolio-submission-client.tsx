@@ -2,17 +2,29 @@
 
 import {
 	BadgeCheck,
+	Check,
 	CircleAlert,
 	FileText,
 	GraduationCap,
 	ShieldCheck,
+	Upload,
 	UserRound,
+	X,
 } from "lucide-react";
-import { useId, useState } from "react";
+import { type ChangeEvent, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const SRI_LANKA_NIC_REGEX = /^[0-9]{9}[vVxX]$|^[0-9]{12}$/;
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024;
+
+type DocumentType = "portfolio" | "businessPlan" | "csrReport";
+
+type FileSelection = {
+	file: File;
+	name: string;
+	size: number;
+};
 
 type VerifiedApplication = {
 	academic: {
@@ -40,11 +52,27 @@ type VerifiedApplication = {
 };
 
 type VerificationResponse =
-	| { application: VerifiedApplication }
+	| { application: VerifiedApplication; verificationToken: string }
 	| { error: string };
+
+type UploadUrlResponse =
+	| { objectKey: string; uploadUrl: string }
+	| { error: string };
+
+type CompletionResponse = { error?: string; success?: boolean };
 
 function hasAward(application: VerifiedApplication, awardCode: string) {
 	return application.awards.some((award) => award.code === awardCode);
+}
+
+function isPdf(file: File) {
+	return (
+		file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
+	);
+}
+
+function formatFileSize(bytes: number) {
+	return `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }
 
 export default function PortfolioSubmissionClient() {
@@ -55,12 +83,16 @@ export default function PortfolioSubmissionClient() {
 	const [application, setApplication] = useState<VerifiedApplication | null>(
 		null,
 	);
+	const [verificationToken, setVerificationToken] = useState<string | null>(
+		null,
+	);
 
 	async function verifyNic() {
 		const normalizedNic = nic.trim().toUpperCase();
 
 		if (!SRI_LANKA_NIC_REGEX.test(normalizedNic)) {
 			setApplication(null);
+			setVerificationToken(null);
 			setError("Enter a valid NIC: 9 digits followed by V/X, or 12 digits.");
 			return;
 		}
@@ -79,6 +111,7 @@ export default function PortfolioSubmissionClient() {
 
 			if (!response.ok || !("application" in result)) {
 				setApplication(null);
+				setVerificationToken(null);
 				setError(
 					"error" in result
 						? result.error
@@ -88,8 +121,10 @@ export default function PortfolioSubmissionClient() {
 			}
 
 			setApplication(result.application);
+			setVerificationToken(result.verificationToken);
 		} catch {
 			setApplication(null);
+			setVerificationToken(null);
 			setError("We could not verify your application. Please try again.");
 		} finally {
 			setIsVerifying(false);
@@ -169,7 +204,13 @@ export default function PortfolioSubmissionClient() {
 					</div>
 				</div>
 
-				{application ? <StudentDashboard application={application} /> : null}
+				{application && verificationToken ? (
+					<StudentDashboard
+						application={application}
+						onApplicationChange={setApplication}
+						verificationToken={verificationToken}
+					/>
+				) : null}
 			</div>
 		</section>
 	);
@@ -177,14 +218,156 @@ export default function PortfolioSubmissionClient() {
 
 function StudentDashboard({
 	application,
+	onApplicationChange,
+	verificationToken,
 }: {
 	application: VerifiedApplication;
+	onApplicationChange: (application: VerifiedApplication) => void;
+	verificationToken: string;
 }) {
 	const requiresBusinessPlan = hasAward(application, "best-young-entrepreneur");
 	const requiresCsrReport = hasAward(application, "best-csr");
+	const requiredDocuments: DocumentType[] = [
+		"portfolio",
+		...(requiresBusinessPlan ? (["businessPlan"] as const) : []),
+		...(requiresCsrReport ? (["csrReport"] as const) : []),
+	];
+	const [files, setFiles] = useState<
+		Partial<Record<DocumentType, FileSelection>>
+	>({});
+	const [fileErrors, setFileErrors] = useState<
+		Partial<Record<DocumentType, string>>
+	>({});
+	const [uploadError, setUploadError] = useState<string | null>(null);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const actionLabel = application.submission.hasSubmission
 		? "Resubmit documents"
 		: "Submit documents";
+	const hasAllRequiredFiles = requiredDocuments.every(
+		(documentType) => files[documentType],
+	);
+
+	function handleFileChange(
+		documentType: DocumentType,
+		event: ChangeEvent<HTMLInputElement>,
+	) {
+		const file = event.target.files?.[0];
+		event.target.value = "";
+		if (!file) return;
+
+		if (!isPdf(file)) {
+			setFileErrors((current) => ({
+				...current,
+				[documentType]: "Choose a PDF file.",
+			}));
+			return;
+		}
+		if (file.size > MAX_FILE_SIZE_BYTES) {
+			setFileErrors((current) => ({
+				...current,
+				[documentType]: "The PDF must be 20 MB or smaller.",
+			}));
+			return;
+		}
+
+		setFiles((current) => ({
+			...current,
+			[documentType]: { file, name: file.name, size: file.size },
+		}));
+		setFileErrors((current) => ({ ...current, [documentType]: undefined }));
+	}
+
+	async function submitDocuments() {
+		if (!hasAllRequiredFiles || isSubmitting) return;
+		setIsSubmitting(true);
+		setUploadError(null);
+
+		try {
+			for (const documentType of requiredDocuments) {
+				const selection = files[documentType];
+				if (!selection) throw new Error("Choose all required documents first.");
+
+				const uploadUrlResponse = await fetch(
+					"/api/portfolio-submission/upload-url",
+					{
+						body: JSON.stringify({
+							contentType: "application/pdf",
+							documentType,
+							fileName: selection.name,
+							sizeBytes: selection.size,
+							verificationToken,
+						}),
+						headers: { "Content-Type": "application/json" },
+						method: "POST",
+					},
+				);
+				const uploadUrlResult: UploadUrlResponse =
+					await uploadUrlResponse.json();
+				if (!uploadUrlResponse.ok || !("uploadUrl" in uploadUrlResult)) {
+					throw new Error(
+						"error" in uploadUrlResult
+							? uploadUrlResult.error
+							: "Could not prepare your upload.",
+					);
+				}
+
+				let uploadResponse: Response;
+				try {
+					uploadResponse = await fetch(uploadUrlResult.uploadUrl, {
+						body: selection.file,
+						headers: { "Content-Type": "application/pdf" },
+						method: "PUT",
+					});
+				} catch {
+					throw new Error(
+						"Your browser could not reach Tigris Storage. Check the bucket CORS origins, PUT method, and allowed headers.",
+					);
+				}
+				if (!uploadResponse.ok) {
+					const responseBody = await uploadResponse.text();
+					const storageCode = responseBody.match(/<Code>([^<]+)<\/Code>/)?.[1];
+					throw new Error(
+						`Tigris upload failed (HTTP ${uploadResponse.status}${storageCode ? `: ${storageCode}` : ""}).`,
+					);
+				}
+
+				const completionResponse = await fetch(
+					"/api/portfolio-submission/complete",
+					{
+						body: JSON.stringify({
+							documentType,
+							objectKey: uploadUrlResult.objectKey,
+							originalFileName: selection.name,
+							verificationToken,
+						}),
+						headers: { "Content-Type": "application/json" },
+						method: "POST",
+					},
+				);
+				const completionResult: CompletionResponse =
+					await completionResponse.json();
+				if (!completionResponse.ok || !completionResult.success) {
+					throw new Error(
+						completionResult.error ?? "Could not confirm your upload.",
+					);
+				}
+			}
+
+			setFiles({});
+			onApplicationChange({
+				...application,
+				submission: { hasSubmission: true, status: "submitted" },
+			});
+		} catch (submissionError) {
+			setUploadError(
+				submissionError instanceof Error
+					? submissionError.message
+					: "Could not submit your documents. Please try again.",
+			);
+		} finally {
+			setIsSubmitting(false);
+		}
+	}
 
 	return (
 		<div className="mt-8 space-y-6" id="submission-dashboard">
@@ -248,23 +431,44 @@ function StudentDashboard({
 					</div>
 
 					<div className="mt-5 space-y-3">
-						<DocumentRequirement
+						<DocumentUploadCard
 							description="Required for every applicant."
+							documentType="portfolio"
+							error={fileErrors.portfolio}
+							file={files.portfolio}
 							label="Portfolio"
-							required
+							onChange={handleFileChange}
+							onRemove={() =>
+								setFiles((current) => ({ ...current, portfolio: undefined }))
+							}
 						/>
 						{requiresBusinessPlan ? (
-							<DocumentRequirement
+							<DocumentUploadCard
 								description="Required for your Best Young Entrepreneur application."
+								documentType="businessPlan"
+								error={fileErrors.businessPlan}
+								file={files.businessPlan}
 								label="Business Plan"
-								required
+								onChange={handleFileChange}
+								onRemove={() =>
+									setFiles((current) => ({
+										...current,
+										businessPlan: undefined,
+									}))
+								}
 							/>
 						) : null}
 						{requiresCsrReport ? (
-							<DocumentRequirement
+							<DocumentUploadCard
 								description="Required for your Best CSR application."
+								documentType="csrReport"
+								error={fileErrors.csrReport}
+								file={files.csrReport}
 								label="CSR Report"
-								required
+								onChange={handleFileChange}
+								onRemove={() =>
+									setFiles((current) => ({ ...current, csrReport: undefined }))
+								}
 							/>
 						) : null}
 					</div>
@@ -278,10 +482,23 @@ function StudentDashboard({
 									: "No documents have been submitted."}
 							</p>
 						</div>
-						<Button disabled type="button">
-							{actionLabel}
+						<Button
+							disabled={!hasAllRequiredFiles || isSubmitting}
+							onClick={submitDocuments}
+							type="button"
+						>
+							{isSubmitting ? "Submitting..." : actionLabel}
 						</Button>
 					</div>
+					{uploadError ? (
+						<p
+							className="mt-3 flex items-center gap-2 text-destructive text-sm"
+							role="alert"
+						>
+							<CircleAlert aria-hidden="true" className="size-4" />
+							{uploadError}
+						</p>
+					) : null}
 
 					<div className="mt-6 border-slate-700/70 border-t pt-5">
 						<h3 className="font-medium">Registered awards</h3>
@@ -336,15 +553,29 @@ function DashboardField({
 	);
 }
 
-function DocumentRequirement({
+function DocumentUploadCard({
 	description,
+	documentType,
+	error,
+	file,
 	label,
-	required,
+	onChange,
+	onRemove,
 }: {
 	description: string;
+	documentType: DocumentType;
+	error?: string;
+	file?: FileSelection;
 	label: string;
-	required: boolean;
+	onChange: (
+		documentType: DocumentType,
+		event: ChangeEvent<HTMLInputElement>,
+	) => void;
+	onRemove: () => void;
 }) {
+	const inputId = useId();
+	const messageId = `${inputId}-message`;
+
 	return (
 		<div className="flex gap-3 rounded-xl border border-slate-700/80 bg-background/50 p-4">
 			<div className="mt-0.5 rounded-full bg-secondary p-2 text-amber-300">
@@ -353,15 +584,58 @@ function DocumentRequirement({
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-center gap-2">
 					<h3 className="font-medium">{label}</h3>
-					{required ? (
-						<span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-amber-200 text-xs">
-							Required
-						</span>
-					) : null}
+					<span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-2 py-0.5 text-amber-200 text-xs">
+						Required
+					</span>
 				</div>
 				<p className="mt-1 text-slate-400 text-sm">{description}</p>
-				<p className="mt-2 text-slate-300 text-xs">PDF · 20 MB maximum</p>
+				{file ? (
+					<p
+						className="mt-2 flex items-center gap-2 text-emerald-500 text-sm"
+						id={messageId}
+					>
+						<Check aria-hidden="true" className="size-4" />
+						<span className="truncate">{file.name}</span> ·{" "}
+						{formatFileSize(file.size)}
+					</p>
+				) : (
+					<p className="mt-2 text-slate-300 text-xs">PDF · 20 MB maximum</p>
+				)}
+				{error ? (
+					<p
+						className="mt-2 flex items-center gap-2 text-destructive text-sm"
+						id={messageId}
+						role="alert"
+					>
+						<CircleAlert aria-hidden="true" className="size-4" />
+						{error}
+					</p>
+				) : null}
 			</div>
+			{file ? (
+				<Button
+					aria-label={`Remove ${label} file`}
+					onClick={onRemove}
+					size="icon"
+					type="button"
+					variant="ghost"
+				>
+					<X aria-hidden="true" />
+				</Button>
+			) : (
+				<label className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-input/30 px-3 font-medium text-sm transition-colors hover:bg-input/50 focus-within:ring-[3px] focus-within:ring-ring/50">
+					<Upload aria-hidden="true" className="size-4" />
+					Choose PDF
+					<input
+						accept="application/pdf,.pdf"
+						aria-describedby={error ? messageId : undefined}
+						className="sr-only"
+						id={inputId}
+						onChange={(event) => onChange(documentType, event)}
+						type="file"
+					/>
+				</label>
+			)}
 		</div>
 	);
 }

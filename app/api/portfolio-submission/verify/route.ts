@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminDb } from "@/lib/firebase-admin";
+import { createVerificationToken } from "@/lib/portfolio-submission-security";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -190,6 +191,7 @@ export async function POST(request: Request) {
 					status: asString(submissionData.submissionStatus) ?? "not_submitted",
 				},
 			},
+			verificationToken: createVerificationToken(applicationId),
 		});
 	} catch (error) {
 		console.error(
