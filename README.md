@@ -13,13 +13,25 @@ organizes the awards, with selected categories also open to other state universi
 This repository contains the public awards website, the 2026 application form,
 and the administration interface. Visit [jesa.lk](https://jesa.lk).
 
+## GitHub repositories
+
+- `origin`: [universitysjp/jesa](https://github.com/universitysjp/jesa)
+- `copy`: [csds-usj/jesa](https://github.com/csds-usj/jesa)
+
+Set up both remotes in an existing clone with:
+
+```sh
+git remote set-url origin https://github.com/universitysjp/jesa
+git remote add copy https://github.com/csds-usj/jesa
+```
+
 ## Development
 
 Use Node 24 and Bun 1.3.10, as recorded in `.nvmrc` and `package.json`.
 
 ```sh
-git clone https://github.com/University-Of-Sri-Jayewardenepura/JESA.git
-cd JESA
+git clone https://github.com/universitysjp/jesa
+cd jesa
 bun install --frozen-lockfile
 cp .env.example .env.local
 bun run dev
